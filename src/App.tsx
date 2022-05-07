@@ -3,54 +3,41 @@ import './App.css';
 import { Subject, buffer, tap, map, filter, throttleTime } from 'rxjs';
 
 const theSubject = new Subject<string>();
-const theObservable = theSubject.asObservable();
+const keyupObservable = theSubject.asObservable();
 
 const bufferClosingNotifier = new Subject<void>();
 const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();
 
-// function bufferTime2<T, R>(ms: number): OperatorFunction<T, R>[] {
-//   const bufferClosingNotifier = new Subject<void>();
-//   const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();
-//   let timeout: NodeJS.Timeout | null = null;
+let timeout: NodeJS.Timeout | null = null;
 
-//   return [
-//     buffer<T>(bufferClosingNotifierObservable)
-//   ];
-
-//   // return [
-//   //   tap(() => {
-//   //     if(interval == null) {
-//   //       interval = setTimeout(() => { 
-//   //         bufferClosingNotifier.next();
-//   //         interval = null; 
-//   //       }, 500);
-//   //     }
-//   //   }),    
-//   //   buffer(bufferClosingNotifierObservable),    
-//   // ];
-// }
+const keyboardListenerObservable = keyupObservable.pipe( 
+  filter(ev => ev.length > 3),
+  tap(() => {
+    if(timeout == null) {
+      timeout = setTimeout(() => { 
+        bufferClosingNotifier.next();
+        timeout = null;
+      }, 500);
+    }
+  }),    
+  buffer(bufferClosingNotifierObservable),
+  map(buffer => buffer.join('')),
+  throttleTime(2000)
+);
 
 function App() {
+  const [scannerModalIsActive, toggleIsScannerModalActive] = React.useReducer(state => !state, false);
+
   React.useEffect(() => {
-    let timeout: NodeJS.Timeout | null = null;
+    const pageSpecificSubscription = keyboardListenerObservable.pipe(
+      filter(ev => {
+        return scannerModalIsActive;
+      })
+    ).subscribe(ev => console.log(ev));
 
-    const subscription = theObservable.pipe( 
-      filter(ev => ev.length > 3),
-      tap(() => {
-        if(timeout == null) {
-          timeout = setTimeout(() => { 
-            bufferClosingNotifier.next();
-            timeout = null;
-          }, 500);
-        }
-      }),    
-      buffer(bufferClosingNotifierObservable),
-      map(buffer => buffer.join('')),
-      throttleTime(2000)
-    ).subscribe(v => console.log(v));
+    return () => pageSpecificSubscription.unsubscribe();
+  }, [scannerModalIsActive]);  
 
-    return () => subscription.unsubscribe();
-  }, []);  
 
   const scanWithOne = () => {
     theSubject.next("dsflajsdlfjkj2kjaskdjf");
@@ -86,6 +73,7 @@ function App() {
       <button onClick={scanWithTwoEvents}>simulate scan with two events in 200ms</button>
       <button onClick={testThrottle}>simulate a double scan after 1 second</button>
       <button onClick={simluateKeyboardInput}>simulate keyboard input</button>
+      <button onClick={toggleIsScannerModalActive}>scanner modal {scannerModalIsActive ? "active" : "inactive"}</button>
       {/* <button onClick={emitClosingNotifier}>emitClosingNotifier</button> */}
     </div>
   );
