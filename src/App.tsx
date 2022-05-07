@@ -1,24 +1,38 @@
-import React from 'react';
-import logo from './logo.svg';
+import * as React from 'react';
 import './App.css';
+import { fromEvent, bufferWhen, interval, Observable, window, Subject, mergeAll, concat,
+  debounceTime,
+} from 'rxjs';
+import { debounceTime2 } from './reduceTime';
+
+const theSubject = new Subject<string>();
+const theObservable = theSubject.asObservable();
 
 function App() {
+  React.useEffect(() => {
+    const subscription = theObservable.pipe(
+      debounceTime2(1000)
+    ).subscribe(v => console.log(v));
+
+    return () => subscription.unsubscribe();
+  }, []);  
+
+  const scan = () => {
+    theSubject.next("dsflajsdlfjkj2kjaskdjf");
+  };
+
+  const scanWithTwoEvents = () => {
+    theSubject.next("dsflajsdlfjkj2kjaskdjf");
+
+    setTimeout(() => {
+      theSubject.next("after200-should-concatenate");
+    }, 200);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <button onClick={scan}>simulate scan</button>
+      <button onClick={scanWithTwoEvents}>simulate scan with two events in 500ms</button>
     </div>
   );
 }
