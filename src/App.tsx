@@ -1,38 +1,47 @@
 import * as React from 'react';
 import './App.css';
-import { Subject, buffer, tap, map, filter, throttleTime } from 'rxjs';
+import { Subject, buffer, tap, map, filter, throttleTime, pipe, UnaryFunction, Observable } from 'rxjs';
 
-const theSubject = new Subject<string>();
-const keyupObservable = theSubject.asObservable();
+const theSimulatedKeyboard = new Subject<string>();
+const keyupObservable = theSimulatedKeyboard.asObservable();
 
-const bufferClosingNotifier = new Subject<void>();
-const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();
+/**
+ * Like bufferTime but the buffer duration starts on the first event
+ * https://stackoverflow.com/questions/50907458/rxjs-observable-reusing-logic
+ */
+function bufferTimeLeading<T>(duration: number): UnaryFunction<Observable<T>, Observable<T[]>> {
+  const bufferClosingNotifier = new Subject<void>();
+  const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();  
+  let timeout: NodeJS.Timeout | null = null;
 
-let timeout: NodeJS.Timeout | null = null;
+  return pipe(
+    tap<T>(() => {
+      if(timeout == null) {
+        timeout = setTimeout(() => { 
+          bufferClosingNotifier.next();
+          timeout = null;
+        }, duration);
+      }
+    }),    
+    buffer<T>(bufferClosingNotifierObservable),
+  );
+}
 
-const keyboardListenerObservable = keyupObservable.pipe( 
+const scannerObservable = keyupObservable.pipe( 
   filter(ev => ev.length > 3),
-  tap(() => {
-    if(timeout == null) {
-      timeout = setTimeout(() => { 
-        bufferClosingNotifier.next();
-        timeout = null;
-      }, 500);
-    }
-  }),    
-  buffer(bufferClosingNotifierObservable),
+  bufferTimeLeading(500),
   map(buffer => buffer.join('')),
   throttleTime(2000)
 );
 
-type PageScanTypeState = "WristBand" | "NurseBadge";
+type ExpectedPageScanTypeState = "WristBand" | "NurseBadge";
 
 function App() {
   const [scannerModalIsActive, toggleIsScannerModalActive] = React.useReducer(state => !state, false);
-  const [scanType, setScanType] = React.useState<PageScanTypeState>("WristBand");
+  const [scanType, setScanType] = React.useState<ExpectedPageScanTypeState>("WristBand");
 
   React.useEffect(() => {
-    const pageSpecificSubscription = keyboardListenerObservable.pipe(
+    const pageSpecificSubscription = scannerObservable.pipe(
       filter(ev => {
         return scannerModalIsActive;
       })
@@ -52,18 +61,18 @@ function App() {
 
 
   const scanWithOne = () => {
-    theSubject.next("dsflajsdlfjkj2kjaskdjf");
+    theSimulatedKeyboard.next("dsflajsdlfjkj2kjaskdjf");
   };
 
-  const emitClosingNotifier = () => {
-    bufferClosingNotifier.next();
-  };
+  // const emitClosingNotifier = () => {
+  //   bufferClosingNotifier.next();
+  // };
 
   const scanWithTwoEvents = () => {
-    theSubject.next("fasdf");
+    theSimulatedKeyboard.next("fasdf");
 
     setTimeout(() => {
-      theSubject.next("after200-should-concatenate");
+      theSimulatedKeyboard.next("after200-should-concatenate");
     }, 200);
   };
 
@@ -71,12 +80,12 @@ function App() {
     scanWithTwoEvents();
 
     setTimeout(() => {
-      theSubject.next("should be ignored");
+      theSimulatedKeyboard.next("should be ignored");
     }, 1000);
   };  
 
   const simluateKeyboardInput = () => {
-    theSubject.next("aa");
+    theSimulatedKeyboard.next("aa");
   };
 
   return (
