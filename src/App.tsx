@@ -36,11 +36,12 @@ const simulatedScannerObservable = simulatedKeyupObservable.pipe(
 
 const scannerObservable = fromEvent<KeyboardEvent>(document, "keyup")
   .pipe(
-    filter(ev => ev.key !== undefined),
+    filter(ev => ev.key !== undefined), // the previous code filtered for undefined key values
     map(ev => ev.key),
-    bufferTimeLeading(500),
+    bufferTimeLeading(500), // the scanner may send the barcode over multiple events, so we have to a bit for the full barcode to be sent
     map(buffer => buffer.join('')),
-    throttleTime(1500)
+    filter(theString => theString.length > 3), // filter out accidental `keyboard input from user
+    throttleTime(1200) // it's easy to accidently scan the same barcode twice, so pause for smidge after a successful scan
   );
 
 type ExpectedPageScanTypeState = "WristBand" | "NurseBadge";
