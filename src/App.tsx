@@ -25,18 +25,30 @@ const keyboardListenerObservable = keyupObservable.pipe(
   throttleTime(2000)
 );
 
+type PageScanTypeState = "WristBand" | "NurseBadge";
+
 function App() {
   const [scannerModalIsActive, toggleIsScannerModalActive] = React.useReducer(state => !state, false);
+  const [scanType, setScanType] = React.useState<PageScanTypeState>("WristBand");
 
   React.useEffect(() => {
     const pageSpecificSubscription = keyboardListenerObservable.pipe(
       filter(ev => {
         return scannerModalIsActive;
       })
-    ).subscribe(ev => console.log(ev));
+    ).subscribe(ev => {
+      switch(scanType) {
+        case 'WristBand':
+          console.log(`I handled WristBand scan: ${ev}`);
+          break;
+        case 'NurseBadge':
+          console.log(`I handled NurseBadge scan: ${ev}`);
+          break;
+      }
+    });
 
     return () => pageSpecificSubscription.unsubscribe();
-  }, [scannerModalIsActive]);  
+  }, [scannerModalIsActive, scanType]);  
 
 
   const scanWithOne = () => {
@@ -74,6 +86,11 @@ function App() {
       <button onClick={testThrottle}>simulate a double scan after 1 second</button>
       <button onClick={simluateKeyboardInput}>simulate keyboard input</button>
       <button onClick={toggleIsScannerModalActive}>scanner modal {scannerModalIsActive ? "active" : "inactive"}</button>
+      <button onClick={() => setScanType('WristBand')}>WristBand</button>
+      <button onClick={() => setScanType('NurseBadge')}>NurseBadge</button>
+      <p>
+        ScanType: {scanType}
+      </p>
       {/* <button onClick={emitClosingNotifier}>emitClosingNotifier</button> */}
     </div>
   );
