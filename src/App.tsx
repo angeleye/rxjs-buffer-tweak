@@ -39,7 +39,7 @@ function App() {
         if(timeout == null) {
           timeout = setTimeout(() => { 
             bufferClosingNotifier.next();
-            clearTimeout(timeout as unknown as number);
+            timeout = null;
           }, 500);
         }
       }),    
