@@ -1,6 +1,6 @@
 import * as React from 'react';
 import './App.css';
-import { Subject, buffer, tap, map, OperatorFunction, throttleTime } from 'rxjs';
+import { Subject, buffer, tap, map, filter, throttleTime } from 'rxjs';
 
 const theSubject = new Subject<string>();
 const theObservable = theSubject.asObservable();
@@ -35,6 +35,7 @@ function App() {
     let timeout: NodeJS.Timeout | null = null;
 
     const subscription = theObservable.pipe( 
+      filter(ev => ev.length > 3),
       tap(() => {
         if(timeout == null) {
           timeout = setTimeout(() => { 
@@ -75,11 +76,16 @@ function App() {
     }, 1000);
   };  
 
+  const simluateKeyboardInput = () => {
+    theSubject.next("aa");
+  };
+
   return (
     <div>
       <button onClick={scanWithOne}>simulate scan with one event</button>
       <button onClick={scanWithTwoEvents}>simulate scan with two events in 200ms</button>
       <button onClick={testThrottle}>simulate a double scan after 1 second</button>
+      <button onClick={simluateKeyboardInput}>simulate keyboard input</button>
       {/* <button onClick={emitClosingNotifier}>emitClosingNotifier</button> */}
     </div>
   );
