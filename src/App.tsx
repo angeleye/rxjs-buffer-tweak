@@ -1,6 +1,6 @@
 import * as React from 'react';
 import './App.css';
-import { Subject, buffer, tap } from 'rxjs';
+import { Subject, buffer, tap, map, OperatorFunction } from 'rxjs';
 
 const theSubject = new Subject<string>();
 const theObservable = theSubject.asObservable();
@@ -8,20 +8,43 @@ const theObservable = theSubject.asObservable();
 const bufferClosingNotifier = new Subject<void>();
 const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();
 
+// function bufferTime2<T, R>(ms: number): OperatorFunction<T, R>[] {
+//   const bufferClosingNotifier = new Subject<void>();
+//   const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();
+//   let timeout: NodeJS.Timeout | null = null;
+
+//   return [
+//     buffer<T>(bufferClosingNotifierObservable)
+//   ];
+
+//   // return [
+//   //   tap(() => {
+//   //     if(interval == null) {
+//   //       interval = setTimeout(() => { 
+//   //         bufferClosingNotifier.next();
+//   //         interval = null; 
+//   //       }, 500);
+//   //     }
+//   //   }),    
+//   //   buffer(bufferClosingNotifierObservable),    
+//   // ];
+// }
+
 function App() {
   React.useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let timeout: NodeJS.Timeout | null = null;
 
     const subscription = theObservable.pipe( 
       tap(() => {
-        if(interval == null) {
-          interval = setTimeout(() => { 
+        if(timeout == null) {
+          timeout = setTimeout(() => { 
             bufferClosingNotifier.next();
-            interval = null; 
+            clearTimeout(timeout as unknown as number);
           }, 500);
         }
       }),    
-      buffer(bufferClosingNotifierObservable)
+      buffer(bufferClosingNotifierObservable),
+      map(buffer => buffer.join(''))
     ).subscribe(v => console.log(v));
 
     return () => subscription.unsubscribe();
