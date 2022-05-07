@@ -1,13 +1,14 @@
 import * as React from 'react';
 import './App.css';
-import { Subject, buffer, tap, map, filter, throttleTime, pipe, UnaryFunction, Observable } from 'rxjs';
+import { Subject, buffer, tap, map, filter, throttleTime, pipe, UnaryFunction, Observable, fromEvent } from 'rxjs';
 
 const theSimulatedKeyboard = new Subject<string>();
-const keyupObservable = theSimulatedKeyboard.asObservable();
+const simulatedKeyupObservable = theSimulatedKeyboard.asObservable();
 
 /**
  * Like bufferTime but the buffer duration starts on the first event
  * https://stackoverflow.com/questions/50907458/rxjs-observable-reusing-logic
+ * https://blog.hackages.io/rxjs-5-5-piping-all-the-things-9d469d1b3f44
  */
 function bufferTimeLeading<T>(duration: number): UnaryFunction<Observable<T>, Observable<T[]>> {
   const closingNotifier = new Subject<void>();
@@ -22,16 +23,25 @@ function bufferTimeLeading<T>(duration: number): UnaryFunction<Observable<T>, Ob
         }, duration);
       }
     }),    
-    buffer<T>(closingNotifier),
+    buffer<T>(closingNotifier)
   );
 }
 
-const scannerObservable = keyupObservable.pipe( 
+const simulatedScannerObservable = simulatedKeyupObservable.pipe( 
   filter(ev => ev.length > 3),
   bufferTimeLeading(500),
   map(buffer => buffer.join('')),
-  throttleTime(2000)
+  throttleTime(1500)
 );
+
+const scannerObservable = fromEvent<KeyboardEvent>(document, "keyup")
+  .pipe(
+    filter(ev => ev.key !== undefined),
+    map(ev => ev.key),
+    bufferTimeLeading(500),
+    map(buffer => buffer.join('')),
+    throttleTime(1500)
+  );
 
 type ExpectedPageScanTypeState = "WristBand" | "NurseBadge";
 
@@ -40,7 +50,7 @@ function App() {
   const [scanType, setScanType] = React.useState<ExpectedPageScanTypeState>("WristBand");
 
   React.useEffect(() => {
-    const pageSpecificSubscription = scannerObservable.pipe(
+    const pageSpecificSubscription = simulatedScannerObservable.pipe(
       filter(ev => {
         return scannerModalIsActive;
       })
