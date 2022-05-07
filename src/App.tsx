@@ -1,28 +1,42 @@
 import * as React from 'react';
 import './App.css';
-import { fromEvent, bufferWhen, interval, Observable, window, Subject, mergeAll, concat,
-  debounceTime,
-} from 'rxjs';
-import { debounceTime2 } from './reduceTime';
+import { Subject, buffer, tap } from 'rxjs';
 
 const theSubject = new Subject<string>();
 const theObservable = theSubject.asObservable();
 
+const bufferClosingNotifier = new Subject<void>();
+const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();
+
 function App() {
   React.useEffect(() => {
-    const subscription = theObservable.pipe(
-      debounceTime2(1000)
+    let interval: NodeJS.Timeout | null = null;
+
+    const subscription = theObservable.pipe( 
+      tap(() => {
+        if(interval == null) {
+          interval = setTimeout(() => { 
+            bufferClosingNotifier.next();
+            interval = null; 
+          }, 500);
+        }
+      }),    
+      buffer(bufferClosingNotifierObservable)
     ).subscribe(v => console.log(v));
 
     return () => subscription.unsubscribe();
   }, []);  
 
-  const scan = () => {
+  const scanWithOne = () => {
     theSubject.next("dsflajsdlfjkj2kjaskdjf");
   };
 
+  const emitClosingNotifier = () => {
+    bufferClosingNotifier.next();
+  };
+
   const scanWithTwoEvents = () => {
-    theSubject.next("dsflajsdlfjkj2kjaskdjf");
+    theSubject.next("fasdf");
 
     setTimeout(() => {
       theSubject.next("after200-should-concatenate");
@@ -31,8 +45,9 @@ function App() {
 
   return (
     <div>
-      <button onClick={scan}>simulate scan</button>
-      <button onClick={scanWithTwoEvents}>simulate scan with two events in 500ms</button>
+      <button onClick={scanWithOne}>simulate scan with one event</button>
+      <button onClick={scanWithTwoEvents}>simulate scan with two events in 200ms</button>
+      {/* <button onClick={emitClosingNotifier}>emitClosingNotifier</button> */}
     </div>
   );
 }
