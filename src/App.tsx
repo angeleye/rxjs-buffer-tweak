@@ -10,20 +10,20 @@ const keyupObservable = theSimulatedKeyboard.asObservable();
  * https://stackoverflow.com/questions/50907458/rxjs-observable-reusing-logic
  */
 function bufferTimeLeading<T>(duration: number): UnaryFunction<Observable<T>, Observable<T[]>> {
-  const bufferClosingNotifier = new Subject<void>();
-  const bufferClosingNotifierObservable = bufferClosingNotifier.asObservable();  
+  const closingNotifier = new Subject<void>();
+  
   let timeout: NodeJS.Timeout | null = null;
 
   return pipe(
     tap<T>(() => {
       if(timeout == null) {
         timeout = setTimeout(() => { 
-          bufferClosingNotifier.next();
+          closingNotifier.next();
           timeout = null;
         }, duration);
       }
     }),    
-    buffer<T>(bufferClosingNotifierObservable),
+    buffer<T>(closingNotifier),
   );
 }
 
