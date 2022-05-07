@@ -11,7 +11,6 @@ const keyupObservable = theSimulatedKeyboard.asObservable();
  */
 function bufferTimeLeading<T>(duration: number): UnaryFunction<Observable<T>, Observable<T[]>> {
   const closingNotifier = new Subject<void>();
-  
   let timeout: NodeJS.Timeout | null = null;
 
   return pipe(
