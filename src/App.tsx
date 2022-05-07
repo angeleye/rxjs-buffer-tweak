@@ -1,6 +1,6 @@
 import * as React from 'react';
 import './App.css';
-import { Subject, buffer, tap, map, OperatorFunction } from 'rxjs';
+import { Subject, buffer, tap, map, OperatorFunction, throttleTime } from 'rxjs';
 
 const theSubject = new Subject<string>();
 const theObservable = theSubject.asObservable();
@@ -44,7 +44,8 @@ function App() {
         }
       }),    
       buffer(bufferClosingNotifierObservable),
-      map(buffer => buffer.join(''))
+      map(buffer => buffer.join('')),
+      throttleTime(2000)
     ).subscribe(v => console.log(v));
 
     return () => subscription.unsubscribe();
@@ -66,10 +67,19 @@ function App() {
     }, 200);
   };
 
+  const testThrottle = () => {
+    scanWithTwoEvents();
+
+    setTimeout(() => {
+      theSubject.next("should be ignored");
+    }, 1000);
+  };  
+
   return (
     <div>
       <button onClick={scanWithOne}>simulate scan with one event</button>
       <button onClick={scanWithTwoEvents}>simulate scan with two events in 200ms</button>
+      <button onClick={testThrottle}>simulate a double scan after 1 second</button>
       {/* <button onClick={emitClosingNotifier}>emitClosingNotifier</button> */}
     </div>
   );
