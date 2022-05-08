@@ -16,32 +16,59 @@ function bufferTimeLeading<T>(duration: number): UnaryFunction<Observable<T>, Ob
 
   return pipe(
     tap<T>(() => {
-      if(timeout == null) {
-        timeout = setTimeout(() => { 
+      if (timeout == null) {
+        timeout = setTimeout(() => {
           closingNotifier.next();
           timeout = null;
         }, duration);
       }
-    }),    
+    }),
     buffer<T>(closingNotifier)
   );
 }
 
-const simulatedScannerObservable = simulatedKeyupObservable.pipe( 
+const simulatedScannerObservable = simulatedKeyupObservable.pipe(
   filter(ev => ev.length > 3),
   bufferTimeLeading(500),
   map(buffer => buffer.join('')),
   throttleTime(1500)
 );
 
+function scannerBuffer(): UnaryFunction<Observable<string>, Observable<string>> {
+  return pipe(
+    bufferTimeLeading(500), // the scanner may send the barcode over multiple events, so we have to wait a bit for the full barcode to be sent
+    map(buffer => buffer.join('')),
+    filter(theString => theString.length > 3), // filter out accidental keyboard input from user
+    throttleTime(1200) // it's easy to accidently scan the same barcode twice, so pause for moment after a successful scan
+  );
+}
+
+function createScannerObservable({ active }: { active?: () => boolean }): Observable<string> {
+  return fromEvent<KeyboardEvent>(document, "keyup")
+    .pipe(
+      filter(() => active?.() ?? true),
+      filter(ev => ev.key !== undefined), // the previous code filtered undefined key values
+      map(ev => ev.key),      
+      scannerBuffer()
+    );
+}
+
+function createSimulatedScannerObservable({ active }: { active?: () => boolean }): Observable<string> {
+  return simulatedKeyupObservable
+    .pipe(
+      filter(() => active?.() ?? true),
+      scannerBuffer()
+    );
+}
+
 const scannerObservable = fromEvent<KeyboardEvent>(document, "keyup")
   .pipe(
-    filter(ev => ev.key !== undefined), // the previous code filtered for undefined key values
+    filter(ev => ev.key !== undefined), // the previous code filtered undefined key values
     map(ev => ev.key),
-    bufferTimeLeading(500), // the scanner may send the barcode over multiple events, so we have to a bit for the full barcode to be sent
+    bufferTimeLeading(500), // the scanner may send the barcode over multiple events, so we have to wait a bit for the full barcode to be sent
     map(buffer => buffer.join('')),
-    filter(theString => theString.length > 3), // filter out accidental `keyboard input from user
-    throttleTime(1200) // it's easy to accidently scan the same barcode twice, so pause for smidge after a successful scan
+    filter(theString => theString.length > 3), // filter out accidental keyboard input from user
+    throttleTime(1200) // it's easy to accidently scan the same barcode twice, so pause for moment after a successful scan
   );
 
 type ExpectedPageScanTypeState = "WristBand" | "NurseBadge";
@@ -50,24 +77,37 @@ function App() {
   const [scannerModalIsActive, toggleIsScannerModalActive] = React.useReducer(state => !state, false);
   const [scanType, setScanType] = React.useState<ExpectedPageScanTypeState>("WristBand");
 
+  // React.useEffect(() => {
+  //   const pageSpecificSubscription = simulatedScannerObservable.pipe(
+  //     filter(ev => {
+  //       return scannerModalIsActive;
+  //     })
+  //   ).subscribe(ev => {
+  //     switch(scanType) {
+  //       case 'WristBand':
+  //         console.log(`I handled WristBand scan: ${ev}`);
+  //         break;
+  //       case 'NurseBadge':
+  //         console.log(`I handled NurseBadge scan: ${ev}`);
+  //         break;
+  //     }
+  //   });
+
   React.useEffect(() => {
-    const pageSpecificSubscription = simulatedScannerObservable.pipe(
-      filter(ev => {
-        return scannerModalIsActive;
-      })
-    ).subscribe(ev => {
-      switch(scanType) {
-        case 'WristBand':
-          console.log(`I handled WristBand scan: ${ev}`);
-          break;
-        case 'NurseBadge':
-          console.log(`I handled NurseBadge scan: ${ev}`);
-          break;
-      }
-    });
+    const pageSpecificSubscription = createSimulatedScannerObservable({active: () => scannerModalIsActive})
+      .subscribe(ev => {
+        switch (scanType) {
+          case 'WristBand':
+            console.log(`I handled WristBand scan: ${ev}`);
+            break;
+          case 'NurseBadge':
+            console.log(`I handled NurseBadge scan: ${ev}`);
+            break;
+        }
+      });
 
     return () => pageSpecificSubscription.unsubscribe();
-  }, [scannerModalIsActive, scanType]);  
+  }, [scannerModalIsActive, scanType]);
 
 
   const scanWithOne = () => {
@@ -92,7 +132,7 @@ function App() {
     setTimeout(() => {
       theSimulatedKeyboard.next("should be ignored");
     }, 1000);
-  };  
+  };
 
   const simluateKeyboardInput = () => {
     theSimulatedKeyboard.next("aa");
