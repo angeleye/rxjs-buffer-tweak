@@ -43,6 +43,10 @@ function scannerBuffer(): UnaryFunction<Observable<string>, Observable<string>> 
   );
 }
 
+/**
+ * @param active
+ * if it evaluates to false the observable is disabled
+ */
 function createScannerObservable({ active }: { active?: () => boolean }): Observable<string> {
   return fromEvent<KeyboardEvent>(document, "keyup")
     .pipe(
